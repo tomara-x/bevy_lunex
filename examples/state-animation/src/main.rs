@@ -43,10 +43,10 @@ fn setup(
                 // we want the rl field (that's an Option<Vec2>),
                 // i know it's Some so i take the 0 field of that, (Vec2)
                 // i want the x field of that
-                ("base .0.pos.rl.0.x", Anim::segs(vec![Seg::To(50., 50.), Seg::Hold(1.), Seg::To(0., 50.), Seg::Hold(1.)]).looping(true)),
-                ("base .0.pos.rl.0.y", Anim::segs(vec![Seg::Hold(1.), Seg::To(50., 50.), Seg::Hold(1.), Seg::To(0., 50.,)]).looping(true).with_end_trig()),
+                ("base .0.pos.rl.0.x", Anim::segs(vec![Seg::To(50., 50.), Seg::Hold(1.), Seg::To(0., 50.), Seg::Hold(1.)]).looping()),
+                ("base .0.pos.rl.0.y", Anim::segs(vec![Seg::Hold(1.), Seg::To(50., 50.), Seg::Hold(1.), Seg::To(0., 50.,)]).looping().with_end_trig()),
                 // rh, cause that's what i'm inserting below
-                //("base .0.size.rh.0.y", Anim::segs(vec![Seg::To(10., 10.), Seg::To(0., 10.)]).looping(true)),
+                //("base .0.size.rh.0.y", Anim::segs(vec![Seg::To(10., 10.), Seg::To(0., 10.)]).looping()),
             ]),
 
             UiLayout::new(vec![
