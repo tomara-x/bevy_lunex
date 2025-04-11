@@ -47,6 +47,8 @@ pub mod prelude {
         AnimTrig,
         replacing,
         morphing,
+
+        UiLayoutAnimation,
     };
 
     // Import other file preludes
@@ -575,6 +577,45 @@ pub fn system_layout_compute(
                 if let Some(node_children) = node_children_option {
                     // Add children to the stack
                     stack.extend(node_children.iter().map(|&child| (child, node_rectangle, depth)));
+                }
+            }
+        }
+    }
+}
+
+#[derive(Component, Clone, Default, Deref, DerefMut)]
+pub struct UiLayoutAnimation(pub HashMap<&'static str, Anim>);
+
+impl UiLayoutAnimation {
+    pub fn new(value: Vec<(&'static str, Anim)>) -> Self {
+        let mut map = HashMap::new();
+        for (path, anim) in value {
+            map.insert(path, anim);
+        }
+        UiLayoutAnimation(map)
+    }
+}
+
+pub fn system_layout_animate_fields(
+    mut query: Query<(Entity, &mut UiLayout, &mut UiLayoutAnimation)>,
+    time: Res<Time<Real>>,
+    mut commands: Commands,
+) {
+    for (entity, mut layout, mut animations) in &mut query {
+        for (path, anim) in animations.iter_mut() {
+            if anim.ended() { continue; }
+            if anim.in_trig() {
+                commands.trigger_targets(AnimTrig(path), entity);
+                anim.step();
+            }
+            if let Some(v) = anim.tick(time.delta_secs()) {
+                let mut path = path.split(' ');
+                if let (Some(state), Some(path)) = (path.next(), path.next()) {
+                    if let Some(base) = layout.layouts.get_mut(state) {
+                        if let Ok(field) = base.path_mut::<f32>(path) {
+                            *field = v;
+                        }
+                    }
                 }
             }
         }
@@ -1347,6 +1388,7 @@ impl Plugin for UiLunexPlugin {
         // PRE-COMPUTE SYSTEMS
         app.add_systems(PostUpdate, (
 
+            system_layout_animate_fields,
             system_state_animate_transition,
             system_state_base_balancer,
             system_text_size_to_layout.after(bevy::text::update_text2d_layout),

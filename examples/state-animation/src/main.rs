@@ -33,6 +33,19 @@ fn setup(
             Name::new("Mesh"),
             // spawn time animation (in this case fading out of 'collapsed' state)
             UiStateAnimation::new(vec![("collapsed", Anim::line(1., 0., 1.).with_end_trig())]),
+
+            // you can insert in an observer, i'm just testing here
+            UiLayoutAnimation::new(vec![
+                // window is a tuple struct, we want the 0 field, then the pos field, that's a UiValue<Vec2>
+                // we want the rl field (that's an option<Vec2>, i know it's Some so i take the 0
+                // field of that, now this is a Vec2 i want the x field
+                // that
+                ("base .0.pos.rl.0.x", Anim::segs(vec![Seg::To(50., 50.), Seg::Hold(1.), Seg::To(0., 50.), Seg::Hold(1.)]).looping(true)),
+                ("base .0.pos.rl.0.y", Anim::segs(vec![Seg::Hold(1.), Seg::To(50., 50.), Seg::Hold(1.), Seg::To(0., 50.,)]).looping(true).with_end_trig()),
+                // rh, cause that's what i'm inserting below
+                //("base .0.size.rh.0.y", Anim::segs(vec![Seg::To(10., 10.), Seg::To(0., 10.)]).looping(true)),
+            ]),
+
             UiLayout::new(vec![
                 ("base", UiLayout::window().pos(Rl(50.)).size(Rh(25.))),
                 ("hover", UiLayout::window().pos(Rl(50.)).size(Rh((80., 25.)))),
