@@ -122,14 +122,16 @@ pub enum UiLayoutType {
     Boundary(UiLayoutTypeBoundary),
     Window(UiLayoutTypeWindow),
     Solid(UiLayoutTypeSolid),
+    Relative(UiLayoutTypeRelative),
 }
 impl UiLayoutType {
     /// Computes the layout based on given parameters.
-    pub(crate) fn compute(&self, parent: &Rectangle2D, absolute_scale: f32, viewport_size: Vec2, font_size: f32) -> Rectangle2D {
+    pub(crate) fn compute(&self, parent: &Rectangle2D, absolute_scale: f32, viewport_size: Vec2, font_size: f32, layouts: &HashMap<&'static str, UiLayoutType>) -> Rectangle2D {
         match self {
             UiLayoutType::Boundary(layout) => layout.compute(parent, absolute_scale, viewport_size, font_size),
             UiLayoutType::Window(layout) => layout.compute(parent, absolute_scale, viewport_size, font_size),
             UiLayoutType::Solid(layout) => layout.compute(parent, absolute_scale, viewport_size, font_size),
+            UiLayoutType::Relative(layout) => layout.compute(parent, absolute_scale, viewport_size, font_size, layouts),
         }
     }
 }
@@ -146,6 +148,49 @@ impl From<UiLayoutTypeWindow> for UiLayoutType {
 impl From<UiLayoutTypeSolid> for UiLayoutType {
     fn from(value: UiLayoutTypeSolid) -> Self {
         UiLayoutType::Solid(value)
+    }
+}
+impl From<UiLayoutTypeRelative> for UiLayoutType {
+    fn from(value: UiLayoutTypeRelative) -> Self {
+        UiLayoutType::Relative(value)
+    }
+}
+
+/// **Relative** - layout that's relative to some other layout state
+#[derive(Debug, Default, Clone, Copy, PartialEq, Reflect)]
+pub struct UiLayoutTypeRelative {
+    pub source: &'static str,
+    pub pos: UiValue<Vec2>,
+    pub size: UiValue<Vec2>,
+}
+impl UiLayoutTypeRelative {
+    pub fn new(source: &'static str) -> Self {
+        Self {
+            source,
+            pos: UiValue::new(),
+            size: UiValue::new(),
+        }
+    }
+    pub fn pos(mut self, pos: impl Into<UiValue<Vec2>>) -> Self {
+        self.pos = pos.into();
+        self
+    }
+    pub fn size(mut self, size: impl Into<UiValue<Vec2>>) -> Self {
+        self.size = size.into();
+        self
+    }
+    pub(crate) fn compute(&self, parent: &Rectangle2D, absolute_scale: f32, viewport_size: Vec2, font_size: f32, layouts: &HashMap<&'static str, UiLayoutType>) -> Rectangle2D {
+        if let Some(source) = layouts.get(self.source) {
+            let src_rect = source.compute(parent, absolute_scale, viewport_size, font_size, layouts);
+            let pos = self.pos.evaluate(Vec2::splat(absolute_scale), parent.size, viewport_size, Vec2::splat(font_size));
+            let size = self.size.evaluate(Vec2::splat(absolute_scale), parent.size, viewport_size, Vec2::splat(font_size));
+            Rectangle2D {
+                pos: src_rect.pos + pos,
+                size: src_rect.size + size,
+            }
+        } else {
+            Rectangle2D::new()
+        }
     }
 }
 
