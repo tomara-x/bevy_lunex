@@ -162,6 +162,7 @@ pub struct UiLayoutTypeRelative {
     pub source: &'static str,
     pub pos: UiValue<Vec2>,
     pub size: UiValue<Vec2>,
+    pub anchor: Anchor,
 }
 impl UiLayoutTypeRelative {
     pub fn new(source: &'static str) -> Self {
@@ -169,23 +170,40 @@ impl UiLayoutTypeRelative {
             source,
             pos: UiValue::new(),
             size: UiValue::new(),
+            anchor: Anchor::TopLeft,
         }
     }
+    /// Set the position to be added relative to the source layout
     pub fn pos(mut self, pos: impl Into<UiValue<Vec2>>) -> Self {
         self.pos = pos.into();
         self
     }
+    /// Set the size to be added relative to the source layout
     pub fn size(mut self, size: impl Into<UiValue<Vec2>>) -> Self {
         self.size = size.into();
         self
     }
-    pub(crate) fn compute(&self, parent: &Rectangle2D, absolute_scale: f32, viewport_size: Vec2, font_size: f32, layouts: &HashMap<&'static str, UiLayoutType>) -> Rectangle2D {
+    /// Replaces the anchor with a new value.
+    pub fn anchor(mut self, anchor: impl Into<Anchor>) -> Self {
+        self.anchor = anchor.into();
+        self
+    }
+    pub(crate) fn compute(
+        &self,
+        parent: &Rectangle2D,
+        absolute_scale: f32,
+        viewport_size: Vec2,
+        font_size: f32,
+        layouts: &HashMap<&'static str, UiLayoutType>,
+    ) -> Rectangle2D {
         if let Some(source) = layouts.get(self.source) {
             let src_rect = source.compute(parent, absolute_scale, viewport_size, font_size, layouts);
             let pos = self.pos.evaluate(Vec2::splat(absolute_scale), parent.size, viewport_size, Vec2::splat(font_size));
             let size = self.size.evaluate(Vec2::splat(absolute_scale), parent.size, viewport_size, Vec2::splat(font_size));
+            let mut anchor = self.anchor.as_vec();
+            anchor.y *= -1.0;
             Rectangle2D {
-                pos: src_rect.pos + pos,
+                pos: src_rect.pos + pos - size * anchor,
                 size: src_rect.size + size,
             }
         } else {

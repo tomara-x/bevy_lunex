@@ -471,7 +471,7 @@ impl UiLayout {
     /// # use bevy_lunex::{UiLayout, Rl};
     /// UiLayout::new(vec![
     ///     ("base", UiLayout::window().pos(Rl(50.)).size(Rh(25.)).into()),
-    ///     ("hover", UiLayout::relative("base").pos(Rl(10.)).size(Rl(10.))),
+    ///     ("hover", UiLayout::relative("base").pos(Rl(10.)).size(Rl(10.)).into()),
     /// ]),
     /// ```
     pub fn relative(state: &'static str) -> UiLayoutTypeRelative {
