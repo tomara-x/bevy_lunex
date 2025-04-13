@@ -368,12 +368,13 @@ pub fn system_debug_print_data(
                         );
                     },
                     UiLayoutType::Relative(relative) => {
-                        output_string += &format!(" ➜ {} {} to: {}, p: {}, s: {} {}",
+                        output_string += &format!(" ➜ {} {} to: {}, p: {}, s: {}, a: {} {}",
                             "Relative".bold(),
                             "{",
                             relative.source,
                             relative.pos.to_nicestr(),
                             relative.size.to_nicestr(),
+                            relative.anchor.to_nicestr(),
                             "}",
                         );
                     }
