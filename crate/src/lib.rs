@@ -4,9 +4,9 @@
 // Imports for this crate
 pub(crate) use bevy::prelude::*;
 pub(crate) use bevy::app::PluginGroupBuilder;
-pub(crate) use bevy::sprite::{SpriteSource, Anchor};
+pub(crate) use bevy::sprite::Anchor;
 pub(crate) use bevy::text::TextLayoutInfo;
-pub(crate) use bevy::utils::HashMap;
+pub(crate) use bevy::platform::collections::HashMap;
 pub(crate) use bevy::render::view::RenderLayers;
 pub(crate) use colored::Colorize;
 #[cfg(feature = "text3d")]
@@ -141,7 +141,7 @@ pub trait CameraTextureRenderConstructor {
     fn clear_render_to(handle: Handle<Image>) -> Camera {
         use bevy::render::camera::RenderTarget;
         Camera {
-            target: RenderTarget::Image(handle),
+            target: RenderTarget::Image(handle.into()),
             clear_color: ClearColorConfig::Custom(Color::srgba(0.0, 0.0, 0.0, 0.0)),
             ..default()
         }
@@ -208,7 +208,7 @@ pub fn system_mark_3d(
     for (is_root_3d, root_children) in &root_query {
 
         // Stack-based traversal
-        let mut stack: Vec<(Entity, usize)> = root_children.iter().map(|&child| (child, 1)).rev().collect();
+        let mut stack: Vec<(Entity, usize)> = root_children.iter().map(|child| (child, 1)).rev().collect();
 
         // Loop over the stack
         while let Some((current_entity, depth)) = stack.pop() {
@@ -226,7 +226,7 @@ pub fn system_mark_3d(
 
                 // Push children to the stack
                 if let Some(node_children) = node_children_option {
-                    for &child in node_children.iter().rev() {
+                    for child in node_children.iter().rev() {
                         stack.push((child, depth + 1));
                     }
                 }
@@ -299,7 +299,7 @@ pub fn system_debug_print_data(
         let mut stack: Vec<(Entity, usize, bool)> = root_children
             .iter()
             .enumerate()
-            .map(|(i, &child)| (child, 1, i == root_children.len() - 1)) // Track last-child flag
+            .map(|(i, child)| (child, 1, i == root_children.len() - 1)) // Track last-child flag
             .rev()
             .collect();
 
@@ -374,7 +374,7 @@ pub fn system_debug_print_data(
 
                 if let Some(node_children) = node_children_option {
                     let child_count = node_children.len();
-                    for (i, &child) in node_children.iter().enumerate().rev() {
+                    for (i, child) in node_children.iter().enumerate().rev() {
                         stack.push((child, depth + 1, i == child_count - 1));
                     }
                 }
@@ -417,7 +417,9 @@ pub fn system_debug_print_data(
 /// # }
 /// ```
 #[derive(Component, Reflect, Clone, PartialEq, Debug)]
-#[require(Visibility, SpriteSource, Transform, Dimension, UiState, UiDepth)]
+// TODO(amy): SpriteSource was required here and it was removed in
+// https://github.com/bevyengine/bevy/commit/150eec75351ec9775c059def225d36b346a95217
+#[require(Visibility, Transform, Dimension, UiState, UiDepth)]
 pub struct UiLayout {
     /// Stored layout per state
     pub layouts: HashMap<&'static str, UiLayoutType>
@@ -527,7 +529,7 @@ pub fn system_layout_compute(
         };
 
         // Stack-based traversal
-        let mut stack: Vec<(Entity, Rectangle2D, f32)> = root_children.iter().map(|&child| (child, root_rectangle, 0.0)).rev().collect();
+        let mut stack: Vec<(Entity, Rectangle2D, f32)> = root_children.iter().map(|child| (child, root_rectangle, 0.0)).rev().collect();
 
         while let Some((current_entity, parent_rectangle, depth)) = stack.pop() {
             if let Ok((node_layout, node_depth, node_state, mut node_transform, mut node_dimension, node_children_option)) = node_query.get_mut(current_entity) {
@@ -575,7 +577,7 @@ pub fn system_layout_compute(
 
                 if let Some(node_children) = node_children_option {
                     // Add children to the stack
-                    stack.extend(node_children.iter().map(|&child| (child, node_rectangle, depth)));
+                    stack.extend(node_children.iter().map(|child| (child, node_rectangle, depth)));
                 }
             }
         }
@@ -848,7 +850,7 @@ macro_rules! replacing {
     ( $event:ty, $state:literal, $anim:expr ) => {
         {
             |t: Trigger<$event>, mut q: Query<&mut UiStateAnimation>| {
-                if let Ok(mut anims) = q.get_mut(t.entity()) {
+                if let Ok(mut anims) = q.get_mut(t.target()) {
                     anims.insert($state, $anim);
                 }
             }
@@ -863,7 +865,7 @@ macro_rules! morphing {
     ( $event:ty, $state:literal, $new_anim:expr ) => {
         {
             |t: Trigger<$event>, mut q: Query<&mut UiStateAnimation>| {
-                if let Ok(mut anims) = q.get_mut(t.entity()) {
+                if let Ok(mut anims) = q.get_mut(t.target()) {
                     if let Some(anim) = anims.get_mut($state) {
                         anim.segments = $new_anim.segments;
                         anim.init = $new_anim.init;
@@ -1128,12 +1130,12 @@ pub struct UiSourceCamera<const INDEX: usize>;
 
 /// This system takes [`Camera`] viewport data and pipes them into querried [`Dimension`] + [`UiLayoutRoot`] + [`UiFetchFromCamera`].
 pub fn system_fetch_dimension_from_camera<const INDEX: usize>(
-    src_query: Query<(&Camera, Option<&OrthographicProjection>), (With<UiSourceCamera<INDEX>>, Changed<Camera>)>,
+    src_query: Query<(&Camera, &Projection), (With<UiSourceCamera<INDEX>>, Changed<Camera>)>,
     mut dst_query: Query<&mut Dimension, (With<UiLayoutRoot>, With<UiFetchFromCamera<INDEX>>)>,
 ) {
     // Check if we have a camera dimension input
     if src_query.is_empty() { return; }
-    let Ok((camera, projection_option)) = src_query.get_single() else {
+    let Ok((camera, projection)) = src_query.single() else {
         warn_once!("Multiple UiSourceCamera<{INDEX}> exist at once! Ignoring all camera inputs to avoid unexpected behavior!");
         return;
     };
@@ -1141,7 +1143,7 @@ pub fn system_fetch_dimension_from_camera<const INDEX: usize>(
     // Pipe the camera viewport size
     if let Some(cam_size) = camera.logical_viewport_size() {
         for mut size in &mut dst_query {
-            **size = Vec2::from((cam_size.x, cam_size.y)) * if let Some(p) = projection_option { p.scale } else { 1.0 };
+            **size = Vec2::from((cam_size.x, cam_size.y)) * if let Projection::Orthographic(p) = projection { p.scale } else { 1.0 };
         }
     }
 }

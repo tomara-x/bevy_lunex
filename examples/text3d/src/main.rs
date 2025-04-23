@@ -12,7 +12,9 @@ fn main() -> AppExit {
             DefaultPlugins,
             UiLunexPlugins.set(Text3dPlugin {
                 // If we use custom fonts we need to load them here.
-                load_font_directories: vec!["assets/fonts".to_owned()],
+                // TODO(amy): this is moved to a resource in bevy_rich_text3d 0.3
+                // https://github.com/mintlu8/bevy_rich_text3d/blob/main/src/lib.rs#L97
+                //load_font_directories: vec!["assets/fonts".to_owned()],
                 load_system_fonts: true,
                 ..default()
             }),

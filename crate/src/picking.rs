@@ -3,7 +3,7 @@ use std::cmp::Reverse;
 use bevy::math::{FloatExt, FloatOrd};
 use bevy::window::PrimaryWindow;
 use bevy::picking::backend::prelude::*;
-use bevy::picking::{backend::PointerHits, PickingBehavior};
+use bevy::picking::{backend::PointerHits, Pickable};
 
 use crate::*;
 
@@ -23,13 +23,13 @@ impl Plugin for UiLunexPickingPlugin {
 /// Checks if any Dimension entities are under a pointer.
 pub fn lunex_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    cameras: Query<(Entity, &Camera, &GlobalTransform, &OrthographicProjection)>,
+    cameras: Query<(Entity, &Camera, &GlobalTransform, &Projection)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     sprite_query: Query<(
         Entity,
         &Dimension,
         &GlobalTransform,
-        Option<&PickingBehavior>,
+        Option<&Pickable>,
         &ViewVisibility,
     )>,
     mut output: EventWriter<PointerHits>,
@@ -44,13 +44,13 @@ pub fn lunex_picking(
 
     sorted_sprites.sort_by_key(|x| Reverse(FloatOrd(x.2.translation().z)));
 
-    let primary_window = primary_window.get_single().ok();
+    let primary_window = primary_window.single().ok();
 
     for (pointer, location) in pointers.iter().filter_map(|(pointer, pointer_location)| {
         pointer_location.location().map(|loc| (pointer, loc))
     }) {
         let mut blocked = false;
-        let Some((cam_entity, camera, cam_transform, cam_ortho)) = cameras
+        let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho))) = cameras
             .iter()
             .filter(|(_, camera, _, _)| camera.is_active)
             .find(|(_, camera, _, _)| {
@@ -143,7 +143,7 @@ pub fn lunex_picking(
             .collect();
 
         let order = camera.order as f32;
-        output.send(PointerHits::new(*pointer, picks, order));
+        output.write(PointerHits::new(*pointer, picks, order));
     }
 }
 
@@ -156,7 +156,7 @@ fn lunex_picking(
         Entity,
         &Dimension,
         &GlobalTransform,
-        Option<&PickingBehavior>,
+        Option<&Pickable>,
         &ViewVisibility,
     )>,
     mut output: EventWriter<PointerHits>,
