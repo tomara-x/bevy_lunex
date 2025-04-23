@@ -1,5 +1,5 @@
 use crate::*;
-use bevy::{input::{gamepad::GamepadButtonChangedEvent, mouse::MouseButtonInput, ButtonState}, picking::{pointer::{Location, PointerAction, PointerId, PointerInput, PointerLocation, PressDirection}, PickSet}, render::camera::{NormalizedRenderTarget, RenderTarget}, utils::HashMap, window::{PrimaryWindow, SystemCursorIcon, WindowRef}, winit::cursor::CursorIcon};
+use bevy::{input::{gamepad::GamepadButtonChangedEvent, mouse::MouseButtonInput, ButtonState}, picking::{pointer::{Location, PointerAction, PointerId, PointerInput, PointerLocation}, PickSet}, render::camera::{NormalizedRenderTarget, RenderTarget}, platform::collections::HashMap, window::{PrimaryWindow, SystemCursorIcon, WindowRef}, winit::cursor::CursorIcon};
 
 // Exported prelude
 pub mod prelude {
@@ -196,7 +196,7 @@ fn observer_cursor_cancel_cursor_icon(mut trigger: Trigger<Pointer<Out>>, mut po
 
 /// Component for creating software mouse.
 #[derive(Component, Reflect, Clone, PartialEq, Debug, Default)]
-#[require(PointerId, PickingBehavior(|| PickingBehavior::IGNORE))]
+#[require(PointerId, Pickable::IGNORE)]
 pub struct SoftwareCursor {
     /// Indicates which cursor is being requested.
     cursor_request: SystemCursorIcon,
@@ -353,15 +353,15 @@ fn system_cursor_gamepad_move(
 /// This system will move the mouse cursor.
 fn system_cursor_mouse_move(
     windows: Query<&Window, With<PrimaryWindow>>,
-    cameras: Query<&OrthographicProjection>,
-    mut query: Query<(&mut SoftwareCursor, Option<&Parent>), Without<GamepadCursor>>
+    cameras: Query<&Projection>,
+    mut query: Query<(&mut SoftwareCursor, Option<&ChildOf>), Without<GamepadCursor>>
 ) {
-    if let Ok(window) = windows.get_single() {
-        for (mut cursor, parent_option) in &mut query {
+    if let Ok(window) = windows.single() {
+        for (mut cursor, child_of_option) in &mut query {
             if let Some(position) = window.cursor_position() {
                 // Get projection scale to account for zoomed cameras
-                let scale = if let Some(parent) = parent_option {
-                    if let Ok(projection) = cameras.get(**parent) { projection.scale } else { 1.0 }
+                let scale = if let Some(child_of) = child_of_option {
+                    if let Ok(Projection::Orthographic(p)) = cameras.get(child_of.parent()) { p.scale } else { 1.0 }
                 } else { 1.0 };
 
                 // Compute the cursor position
@@ -394,7 +394,7 @@ fn system_cursor_move_pointer(
     windows: Query<(Entity, &Window), With<PrimaryWindow>>,
     mut query: Query<(&mut PointerLocation, &SoftwareCursor)>,
 ) {
-    if let Ok((win_entity, window)) = windows.get_single() {
+    if let Ok((win_entity, window)) = windows.single() {
         for (mut pointer, cursor) in query.iter_mut() {
             // Change the pointer location
             pointer.location = Some(Location {
@@ -422,13 +422,13 @@ fn system_cursor_send_move_events(
             let last = cursor_last.get(pointer).unwrap_or(&Vec2::ZERO);
             if *last == location.position { continue; }
 
-            pointer_output.send(PointerInput::new(
+            pointer_output.write(PointerInput::new(
                 *pointer,
                 Location {
                     target: location.target.clone(),
                     position: location.position,
                 },
-                PointerAction::Moved {
+                PointerAction::Move {
                     delta: location.position - *last,
                 },
             ));
@@ -459,19 +459,19 @@ fn system_cursor_mouse_send_pick_events(
                 };
 
                 // Which state to change
-                let direction = match input.state {
-                    ButtonState::Pressed => PressDirection::Down,
-                    ButtonState::Released => PressDirection::Up,
+                let action = match input.state {
+                    ButtonState::Pressed => PointerAction::Press(button),
+                    ButtonState::Released => PointerAction::Release(button),
                 };
 
                 // Send out the event
-                pointer_output.send(PointerInput::new(
+                pointer_output.write(PointerInput::new(
                     PointerId::Mouse,
                     Location {
                         target: location.target.clone(),
                         position: location.position,
                     },
-                    PointerAction::Pressed { direction, button },
+                    action,
                 ));
             }
         }
@@ -500,19 +500,19 @@ fn system_cursor_gamepad_send_pick_events(
                 };
 
                 // Which state to change
-                let direction = match input.state {
-                    ButtonState::Pressed => PressDirection::Down,
-                    ButtonState::Released => PressDirection::Up,
+                let action = match input.state {
+                    ButtonState::Pressed => PointerAction::Press(button),
+                    ButtonState::Released => PointerAction::Release(button),
                 };
 
                 // Send out the event
-                pointer_output.send(PointerInput::new(
+                pointer_output.write(PointerInput::new(
                     PointerId::Mouse,
                     Location {
                         target: location.target.clone(),
                         position: location.position,
                     },
-                    PointerAction::Pressed { direction, button },
+                    action,
                 ));
             }
         }
@@ -547,7 +547,7 @@ impl Plugin for CursorPlugin {
                 system_cursor_send_move_events,
                 system_cursor_mouse_send_pick_events,
                 system_cursor_gamepad_send_pick_events,
-                apply_deferred
+                ApplyDeferred
             ).chain().in_set(PickSet::Input))
 
             // Add core systems

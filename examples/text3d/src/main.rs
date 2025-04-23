@@ -8,11 +8,16 @@ use boilerplate::*;
 
 fn main() -> AppExit {
     App::new()
+        // If we use custom fonts we need to load them here.
+        .insert_resource(
+            LoadFonts {
+                font_directories: vec!["assets/fonts".to_owned()],
+                ..default()
+            }
+        )
         .add_plugins((
             DefaultPlugins,
             UiLunexPlugins.set(Text3dPlugin {
-                // If we use custom fonts we need to load them here.
-                load_font_directories: vec!["assets/fonts".to_owned()],
                 load_system_fonts: true,
                 ..default()
             }),
