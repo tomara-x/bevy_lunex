@@ -33,6 +33,22 @@ fn setup(
             Name::new("Mesh"),
             // spawn time animation (in this case fading out of 'collapsed' state)
             UiStateAnimation::new(vec![("collapsed", Anim::line(1., 0., 1.).with_end_trig())]),
+
+            // you can insert in an observer, i'm just testing here
+            UiLayoutAnimation::new(vec![
+                // will get the 'base' layout from the UiLayout map, which is a UiLayoutType.
+                // everything after the space is a bevy_reflect path
+                // i know the variant is Window which is a tuple struct, we want the 0 field (UiLayoutTypeWindow),
+                // then the pos field of that, that's a UiValue<Vec2>,
+                // we want the rl field (that's an Option<Vec2>),
+                // i know it's Some so i take the 0 field of that, (Vec2)
+                // i want the x field of that
+                ("base .0.pos.rl.0.x", Anim::segs(vec![Seg::To(50., 50.), Seg::Hold(1.), Seg::To(0., 50.), Seg::Hold(1.)]).looping()),
+                ("base .0.pos.rl.0.y", Anim::segs(vec![Seg::Hold(1.), Seg::To(50., 50.), Seg::Hold(1.), Seg::To(0., 50.,)]).looping().with_end_trig()),
+                // rh, cause that's what i'm inserting below
+                //("base .0.size.rh.0.y", Anim::segs(vec![Seg::To(10., 10.), Seg::To(0., 10.)]).looping()),
+            ]),
+
             UiLayout::new(vec![
                 ("base", UiLayout::window().pos(Rl(50.)).size(Rh(25.))),
                 ("hover", UiLayout::window().pos(Rl(50.)).size(Rh((80., 25.)))),
