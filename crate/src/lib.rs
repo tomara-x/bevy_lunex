@@ -394,6 +394,17 @@ pub fn system_debug_print_data(
                             "}",
                         );
                     },
+                    UiLayoutType::Relative(relative) => {
+                        output_string += &format!(" ➜ {} {} to: {}, p: {}, s: {}, a: {} {}",
+                            "Relative".bold(),
+                            "{",
+                            relative.source,
+                            relative.pos.to_nicestr(),
+                            relative.size.to_nicestr(),
+                            relative.anchor.to_nicestr(),
+                            "}",
+                        );
+                    }
                 }
 
                 output_string += "\n";
@@ -481,11 +492,24 @@ impl UiLayout {
     pub fn solid() -> UiLayoutTypeSolid {
         UiLayoutTypeSolid::new()
     }
+    /// **Relative** - layout that's relative to another state's layout. Its position and size are
+    /// added to that layout's position and size.
+    /// ## 🛠️ Example
+    /// ```
+    /// # use bevy_lunex::{UiLayout, Rl};
+    /// UiLayout::new(vec![
+    ///     ("base", UiLayout::window().pos(Rl(50.)).size(Rh(25.)).into()),
+    ///     ("hover", UiLayout::relative("base").pos(Rl(10.)).size(Rl(10.)).into()),
+    /// ]),
+    /// ```
+    pub fn relative(state: &'static str) -> UiLayoutTypeRelative {
+        UiLayoutTypeRelative::new(state)
+    }
     /// Create multiple layouts for a different states at once.
-    pub fn new(value: Vec<(&'static str, impl Into<UiLayoutType>)>) -> Self {
+    pub fn new(value: Vec<(&'static str, UiLayoutType)>) -> Self {
         let mut map = HashMap::new();
         for (state, layout) in value {
-            map.insert(state, layout.into());
+            map.insert(state, layout);
         }
         Self { layouts: map }
     }
@@ -590,7 +614,7 @@ pub fn system_layout_compute(
                 // Compute all layouts for the node
                 let mut computed_rectangles = Vec::with_capacity(node_layout.layouts.len());
                 for (state, layout) in &node_layout.layouts {
-                    computed_rectangles.push((state, layout.compute(&parent_rectangle, root.abs_scale, root_rectangle.size, 16.0)));
+                    computed_rectangles.push((state, layout.compute(&parent_rectangle, root.abs_scale, root_rectangle.size, 16.0, &node_layout.layouts)));
                 }
 
                 // Normalize the active state weights
